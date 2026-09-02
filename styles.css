@@ -1,0 +1,93 @@
+/* Loud Outline — nested heading/list/task nodes injected into the native
+   file explorer. Deliberately uses its own class names throughout (rather
+   than reusing core .tree-item / .nav-file classes) so nothing here is ever
+   mistaken for a real file/folder row by Obsidian's own explorer logic. */
+
+.loud-outline-children {
+	overflow: hidden;
+}
+
+.loud-outline-collapsed > .loud-outline-children {
+	display: none;
+}
+
+.loud-outline-item-self {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	padding-inline-start: calc(20px * var(--lo-depth, 1) + 2px);
+	padding-inline-end: 4px;
+	padding-block: 3px;
+	border-radius: var(--radius-s, 4px);
+	cursor: pointer;
+	color: var(--nav-item-color, var(--text-muted));
+	font-size: var(--font-ui-smaller, 0.8rem);
+	line-height: 1.3;
+	white-space: nowrap;
+	user-select: none;
+}
+
+.loud-outline-item-self:hover {
+	background-color: var(--nav-item-background-hover, var(--background-modifier-hover));
+	color: var(--nav-item-color-hover, var(--text-normal));
+}
+
+.loud-outline-collapse-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 14px;
+	height: 14px;
+	color: var(--nav-collapse-icon-color, var(--icon-color, var(--text-faint)));
+}
+
+.loud-outline-collapse-icon svg {
+	width: 10px;
+	height: 10px;
+	transition: transform 100ms ease-in-out;
+}
+
+.loud-outline-collapse-icon.is-collapsed svg {
+	transform: rotate(-90deg);
+}
+
+.loud-outline-collapse-icon-spacer {
+	visibility: hidden;
+}
+
+.loud-outline-file-icon {
+	margin-inline-start: 2px;
+}
+
+.loud-outline-item-inner {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+}
+
+.loud-outline-item-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.loud-outline-item[data-lo-type="heading"] > .loud-outline-item-self .loud-outline-item-label {
+	font-weight: var(--font-medium, 500);
+	color: var(--nav-item-color, var(--text-normal));
+}
+
+.loud-outline-task-checkbox {
+	margin: 0;
+	pointer-events: none;
+	flex-shrink: 0;
+}
+
+.loud-outline-item[data-lo-type="task"][data-lo-checked="true"] .loud-outline-item-label {
+	text-decoration: line-through;
+	opacity: 0.7;
+}
