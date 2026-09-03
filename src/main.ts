@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
+import { App, Plugin, PluginSettingTab, Setting, SettingDefinitionItem } from "obsidian";
 import { DEFAULT_SETTINGS, LoudOutlineSettings } from "./settings";
 import { ExplorerOutlineManager } from "./explorerIntegration";
 
@@ -22,7 +22,8 @@ export default class LoudOutlinePlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const loaded = (await this.loadData()) as Partial<LoudOutlineSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded ?? {});
 	}
 
 	async saveSettings(): Promise<void> {
@@ -57,5 +58,31 @@ class LoudOutlineSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				})
 			);
+	}
+
+	/**
+	 * Lets Obsidian's core settings search find and jump to this plugin's
+	 * setting(s) (added in 1.13.0). `display()` above remains the tab's real
+	 * renderer; this just makes "show tasks and lists" discoverable from the
+	 * global search without duplicating that UI.
+	 */
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [
+			{
+				name: "Show tasks and lists",
+				desc: "Show task and list items as nested nodes in the file explorer, in addition to headings.",
+				control: {
+					type: "toggle",
+					key: "showListsAndTasks",
+				},
+			},
+		];
+	}
+
+	setControlValue(key: string, value: unknown): void | Promise<void> {
+		if (key === "showListsAndTasks") {
+			this.plugin.settings.showListsAndTasks = Boolean(value);
+			return this.plugin.saveSettings();
+		}
 	}
 }
