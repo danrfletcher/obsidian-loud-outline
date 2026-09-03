@@ -13,10 +13,10 @@
     than assuming every non-default checkbox marker means "done".
 - **Added:** for tasks governed by Checklist Status Sets, the tree's status dot is now interactive -
   left-click cycles to the next status, right-click opens its real status picker, the same as the
-  note's own dots. A task's status can be changed without opening the note. Known limitation: this
-  currently only works reliably with the note open in Live Preview - see
-  [Compatibility](reference/compatibility.md#2-checklist-status-sets) for a Reading-view issue
-  upstream in Checklist Status Sets.
+  note's own dots. A task's status can be changed without opening the note. Requires Checklist
+  Status Sets 0.2.1+ for this to work correctly with a note open in Reading view (an earlier version
+  silently no-ops left-click and can mis-highlight the current status on right-click there - fixed
+  upstream, not something this plugin works around).
 - **Fixed:** a task governed by a custom (non-`x`/`X`) checkbox marker was previously always shown
   fully checked and struck-through in the tree, regardless of what that marker actually meant -
   only a genuine `- [x]`/`- [X]` (or, with Checklist Status Sets installed, a status actually marked
