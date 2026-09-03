@@ -1,7 +1,7 @@
 {
 	"id": "loud-outline",
 	"name": "Loud Outline",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"minAppVersion": "1.4.0",
 	"description": "Like Quiet Outline, but louder! Shows each note's headings, tasks and lists as expandable nodes right in the file explorer — no separate outline pane needed.",
 	"author": "Dan Fletcher",
