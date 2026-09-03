@@ -1,8 +1,9 @@
 # Loud Outline
 
-An [Obsidian](https://obsidian.md) plugin that shows each note's headings, tasks and lists as
-expandable/collapsible nodes **directly in the native file explorer** — the same interaction as a
-folder expanding to reveal the files inside it, except a *file* expands to reveal its own outline.
+Like [Quiet Outline](https://github.com/guopenghui/obsidian-quiet-outline), but louder! Shows each
+note's headings, tasks and lists as expandable/collapsible nodes **directly in
+[Obsidian](https://obsidian.md)'s native file explorer** — the same interaction as a folder
+expanding to reveal the files inside it, except a *file* expands to reveal its own outline.
 
 No separate outline pane. The file tree *is* the outline.
 

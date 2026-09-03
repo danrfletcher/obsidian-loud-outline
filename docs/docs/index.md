@@ -1,8 +1,9 @@
 # Overview
 
-**Loud Outline** shows every note's headings, tasks and lists as expandable/collapsible rows
-**directly inside Obsidian's native file explorer** — the same interaction as a folder expanding to
-reveal the files inside it, except a *file* expands to reveal its own outline.
+Like [Quiet Outline](https://github.com/guopenghui/obsidian-quiet-outline), but louder! **Loud
+Outline** shows each note's headings, tasks and lists as expandable/collapsible rows **directly
+inside Obsidian's native file explorer** — the same interaction as a folder expanding to reveal the
+files inside it, except a *file* expands to reveal its own outline.
 
 ![The file explorer with a note expanded to show its nested headings, tasks and lists, alongside the matching note content](assets/hero.png)
 
