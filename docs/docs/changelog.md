@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.3
+
+Code-quality pass in response to Obsidian's automated plugin review — no user-visible behavior
+changes.
+
+- Replaced the collapse-arrow icon's raw `innerHTML` assignment with Obsidian's `setIcon()` (a
+  Lucide `chevron-down`), and switched all manual `document.createElement` DOM construction over to
+  Obsidian's `createEl`/`createDiv`/`createSpan` helpers.
+- Added `getSettingDefinitions()` to the settings tab so **Show tasks and lists** is discoverable
+  from Obsidian's core settings search (added in Obsidian 1.13.0).
+- Dropped the `builtin-modules` dev dependency in favor of Node's own `node:module` built-in list.
+- Minor type-safety cleanups (an unnecessary type assertion, an untyped `loadData()` result).
+
 ## 1.0.2
 
 - **Fixed:** the collapse arrow added to a file's row sat at a fixed position that only looked

@@ -1,4 +1,4 @@
-import { App, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "obsidian";
+import { App, setIcon, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "obsidian";
 import { buildOutlineTree, OutlineNode } from "./outlineTree";
 import type LoudOutlinePlugin from "./main";
 
@@ -21,10 +21,8 @@ interface ExplorerView {
 	fileItems: Record<string, ExplorerItem>;
 }
 
-const COLLAPSE_ICON_SVG =
-	'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" ' +
-	'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
-	'class="loud-outline-svg-icon"><path d="M3 8L12 17L21 8"></path></svg>';
+/** Lucide icon name for the collapse arrow (rotated via CSS when collapsed). */
+const COLLAPSE_ICON_NAME = "chevron-down";
 
 /**
  * Icon width (see .loud-outline-collapse-icon in styles.css) plus a small
@@ -318,9 +316,9 @@ export class ExplorerOutlineManager {
 			.map((file) => ({ file, outline: this.getOutline(file) }));
 		const totalNodes = entries.reduce((n, e) => n + e.outline.nodes.length, 0);
 
-		let childrenEl = root.querySelector(":scope > .loud-outline-root-children") as HTMLElement | null;
+		let childrenEl = root.querySelector<HTMLElement>(":scope > .loud-outline-root-children");
 		let icon = !isFolder
-			? (item.selfEl?.querySelector(":scope > .loud-outline-collapse-icon") as HTMLElement | null)
+			? item.selfEl?.querySelector<HTMLElement>(":scope > .loud-outline-collapse-icon")
 			: null;
 
 		if (!totalNodes) {
@@ -365,9 +363,10 @@ export class ExplorerOutlineManager {
 		const sig = entries.map((e) => `${e.file.path}#${e.outline.id}`).join("|");
 		if (!childrenEl || childrenEl.dataset.loSig !== sig) {
 			childrenEl?.remove();
-			childrenEl = document.createElement("div");
-			childrenEl.className = "loud-outline-root-children loud-outline-children";
-			childrenEl.dataset.loSig = sig;
+			childrenEl = createDiv({
+				cls: "loud-outline-root-children loud-outline-children",
+				attr: { "data-lo-sig": sig },
+			});
 			for (const { file, outline } of entries) {
 				for (const node of outline.nodes) {
 					childrenEl.appendChild(this.renderNode(node, file, 1));
@@ -388,15 +387,16 @@ export class ExplorerOutlineManager {
 	}
 
 	private renderNode(node: OutlineNode, file: TFile, depth: number): HTMLElement {
-		const wrapper = document.createElement("div");
-		wrapper.className = "loud-outline-item";
-		wrapper.dataset.loType = node.type;
-		if (node.checked !== undefined) wrapper.dataset.loChecked = String(node.checked);
+		const wrapper = createDiv({
+			cls: "loud-outline-item",
+			attr: {
+				"data-lo-type": node.type,
+				...(node.checked !== undefined ? { "data-lo-checked": String(node.checked) } : {}),
+			},
+		});
 		wrapper.style.setProperty("--lo-depth", String(depth));
 
-		const self = document.createElement("div");
-		self.className = "loud-outline-item-self";
-		wrapper.appendChild(self);
+		const self = wrapper.createDiv({ cls: "loud-outline-item-self" });
 
 		const hasChildren = node.children.length > 0;
 		const nodeKey = `n:${file.path}:${node.line}:${node.type}`;
@@ -411,28 +411,18 @@ export class ExplorerOutlineManager {
 				this.toggleExpanded(nodeKey, wrapper, icon);
 			});
 		} else {
-			const spacer = document.createElement("div");
-			spacer.className = "loud-outline-collapse-icon loud-outline-collapse-icon-spacer";
-			self.appendChild(spacer);
+			self.createDiv({ cls: "loud-outline-collapse-icon loud-outline-collapse-icon-spacer" });
 		}
 
-		const inner = document.createElement("div");
-		inner.className = "loud-outline-item-inner";
+		const inner = self.createDiv({ cls: "loud-outline-item-inner" });
 
 		if (node.type === "task") {
-			const checkbox = document.createElement("input");
-			checkbox.type = "checkbox";
+			const checkbox = inner.createEl("input", { cls: "loud-outline-task-checkbox", type: "checkbox" });
 			checkbox.checked = !!node.checked;
 			checkbox.disabled = true;
-			checkbox.className = "loud-outline-task-checkbox";
-			inner.appendChild(checkbox);
 		}
 
-		const label = document.createElement("span");
-		label.className = "loud-outline-item-label";
-		label.textContent = node.text;
-		inner.appendChild(label);
-		self.appendChild(inner);
+		inner.createSpan({ cls: "loud-outline-item-label", text: node.text });
 
 		self.addEventListener("click", (evt) => {
 			evt.preventDefault();
@@ -441,12 +431,10 @@ export class ExplorerOutlineManager {
 		});
 
 		if (hasChildren) {
-			const childrenEl = document.createElement("div");
-			childrenEl.className = "loud-outline-item-children loud-outline-children";
+			const childrenEl = wrapper.createDiv({ cls: "loud-outline-item-children loud-outline-children" });
 			for (const child of node.children) {
 				childrenEl.appendChild(this.renderNode(child, file, depth + 1));
 			}
-			wrapper.appendChild(childrenEl);
 			wrapper.classList.toggle("loud-outline-collapsed", !this.expandedKeys.has(nodeKey));
 		}
 
@@ -454,9 +442,8 @@ export class ExplorerOutlineManager {
 	}
 
 	private createCollapseIcon(collapsed: boolean): HTMLElement {
-		const icon = document.createElement("div");
-		icon.className = "loud-outline-collapse-icon";
-		icon.innerHTML = COLLAPSE_ICON_SVG;
+		const icon = createDiv({ cls: "loud-outline-collapse-icon" });
+		setIcon(icon, COLLAPSE_ICON_NAME);
 		icon.classList.toggle("is-collapsed", collapsed);
 		return icon;
 	}

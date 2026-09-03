@@ -1,6 +1,6 @@
 {
 	"name": "loud-outline",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"description": "Like Quiet Outline, but louder! Shows each note's headings, tasks and lists as expandable nodes right in the file explorer — no separate outline pane needed.",
 	"main": "main.js",
 	"scripts": {
@@ -23,7 +23,6 @@
 		"@types/node": "^20.14.9",
 		"@typescript-eslint/eslint-plugin": "^7.16.0",
 		"@typescript-eslint/parser": "^7.16.0",
-		"builtin-modules": "^3.3.0",
 		"esbuild": "^0.21.5",
 		"eslint": "^8.57.0",
 		"obsidian": "^1.5.7-1",
