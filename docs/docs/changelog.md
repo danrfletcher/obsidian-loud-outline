@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.2
+
+- **Fixed:** the collapse arrow added to a file's row sat at a fixed position that only looked
+  right for one specific nesting depth — a file one level deep would show its arrow lined up with
+  its *parent* folder's arrow instead of its own, and the gap grew with each further level of
+  nesting. The arrow is now positioned from that row's own indentation, the same way Obsidian
+  positions a folder's native arrow, so it lines up correctly no matter how deeply the file is
+  nested.
+
 ## 1.0.1
 
 - **Fixed:** compatibility with folder-note plugins (e.g. [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes))

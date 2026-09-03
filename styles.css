@@ -74,6 +74,11 @@
 
 .loud-outline-file-icon {
 	position: absolute;
+	/* Overridden inline per-row from the row's own padding-inline-start
+	   (see syncHost in explorerIntegration.ts) - every row starts at the same
+	   left edge regardless of depth, so a single fixed value here would only
+	   ever be correct for one specific nesting depth. This is just a sane
+	   fallback for the instant before that first runs. */
 	inset-inline-start: 2px;
 	top: 50%;
 	transform: translateY(-50%);

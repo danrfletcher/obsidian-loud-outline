@@ -26,6 +26,13 @@ const COLLAPSE_ICON_SVG =
 	'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
 	'class="loud-outline-svg-icon"><path d="M3 8L12 17L21 8"></path></svg>';
 
+/**
+ * Icon width (see .loud-outline-collapse-icon in styles.css) plus a small
+ * gap before the text - how much of a row's own padding-inline-start the
+ * injected file icon needs to tuck itself into.
+ */
+const FILE_ICON_RESERVED_WIDTH = 18;
+
 interface CachedOutline {
 	/** Monotonic id, used as a cheap "has this changed" signature for re-renders. */
 	id: number;
@@ -338,6 +345,18 @@ export class ExplorerOutlineManager {
 					this.toggleExpanded(hostKey, root, icon!);
 				});
 			}
+			// Every explorer row - file or folder, at any depth - starts at the
+			// same left edge; Obsidian indents purely via each row's own
+			// padding-inline-start (confirmed live: a root-level folder and a
+			// deeply-nested file both report the same selfEl.left). A fixed
+			// icon offset therefore only happens to look right at one specific
+			// depth - it has to be computed from *this* row's own padding each
+			// time, the same way Obsidian positions its native folder icon
+			// just inside that row's own reserved gutter.
+			const nativePadding = parseFloat(getComputedStyle(item.selfEl).paddingInlineStart) || 0;
+			const iconInset = Math.max(2, nativePadding - FILE_ICON_RESERVED_WIDTH);
+			icon.style.insetInlineStart = `${iconInset}px`;
+
 			const expanded = this.expandedKeys.has(hostKey);
 			root.classList.toggle("loud-outline-collapsed", !expanded);
 			icon.classList.toggle("is-collapsed", !expanded);
