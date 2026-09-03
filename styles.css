@@ -150,6 +150,18 @@
 	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
 }
 
+/* Only when Checklist Status Sets' API supports click/right-click (see
+   supportsTaskInteraction in checklistStatusIntegration.ts) - a plain
+   decoration-only dot (older API) stays inert, same cursor as the rest of
+   the row. */
+.loud-outline-status-dot-interactive {
+	cursor: pointer;
+}
+
+.loud-outline-status-dot-interactive:hover {
+	transform: scale(1.15);
+}
+
 .loud-outline-glow > .loud-outline-status-dot {
 	box-shadow:
 		0 0 0 1px rgba(0, 0, 0, 0.15),

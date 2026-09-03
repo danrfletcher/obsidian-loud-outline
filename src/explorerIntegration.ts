@@ -1,6 +1,6 @@
 import { App, setIcon, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "obsidian";
 import { buildOutlineTree, OutlineNode } from "./outlineTree";
-import { ChecklistStatusIntegration, ChecklistTaskStatusDecoration } from "./checklistStatusIntegration";
+import { ChecklistStatusIntegration, ChecklistTaskStatusDecoration, supportsTaskInteraction } from "./checklistStatusIntegration";
 import type LoudOutlinePlugin from "./main";
 
 /**
@@ -472,7 +472,7 @@ export class ExplorerOutlineManager {
 		const inner = self.createDiv({ cls: "loud-outline-item-inner" });
 
 		if (node.type === "task") {
-			const label = this.renderTaskCheckbox(inner, node, decoration);
+			const label = this.renderTaskCheckbox(inner, node, file, decoration);
 			label.setText(node.text);
 		} else {
 			inner.createSpan({ cls: "loud-outline-item-label", text: node.text });
@@ -514,10 +514,17 @@ export class ExplorerOutlineManager {
 	 * Returns the label element so the caller can fill in its text - kept
 	 * here rather than inside this method so every node type still creates
 	 * its label through one call site in renderNode.
+	 *
+	 * When Checklist Status Sets' API supports it (see
+	 * supportsTaskInteraction), the dot is also made interactive the same
+	 * way that plugin's own dots are in the note: left-click cycles to the
+	 * next status, right-click opens its real status picker - so a task's
+	 * status can be changed from the tree without opening the note.
 	 */
 	private renderTaskCheckbox(
 		inner: HTMLElement,
 		node: OutlineNode,
+		file: TFile,
 		decoration: ChecklistTaskStatusDecoration | undefined
 	): HTMLElement {
 		const marker = node.marker ?? (node.checked ? "x" : " ");
@@ -531,7 +538,39 @@ export class ExplorerOutlineManager {
 			const dot = li.createSpan({ cls: "loud-outline-status-dot" });
 			dot.setCssStyles({ backgroundColor: decoration.color, color: decoration.color });
 			dot.setAttribute("aria-label", decoration.label);
-			li.classList.toggle("loud-outline-glow", this.checklistIntegration.getApi()?.isGlowEnabled() ?? false);
+			const api = this.checklistIntegration.getApi();
+			li.classList.toggle("loud-outline-glow", api?.isGlowEnabled() ?? false);
+
+			if (api && supportsTaskInteraction(api)) {
+				dot.addClass("loud-outline-status-dot-interactive");
+				// mousedown, not click - mirrors Checklist Status Sets' own dots
+				// (some Electron/input-method combinations never synthesize a
+				// click event at all). stopPropagation so the row's own click
+				// handler (navigate to line) never also fires.
+				dot.addEventListener("mousedown", (evt) => {
+					evt.preventDefault();
+					evt.stopPropagation();
+					const liveApi = this.checklistIntegration.getApi();
+					if (!liveApi || !supportsTaskInteraction(liveApi)) return;
+					if (evt.button === 2) {
+						void liveApi.openTaskStatusPopup(dot, file.path, node.line);
+					} else if (evt.button === 0) {
+						void liveApi.cycleTaskStatus(file.path, node.line);
+					}
+				});
+				dot.addEventListener("contextmenu", (evt) => {
+					evt.preventDefault();
+					evt.stopPropagation();
+				});
+				// A mousedown/mouseup pair still synthesizes a click afterwards
+				// regardless of what mousedown's own listener above did -
+				// swallow it here too, or it would bubble up to the row's own
+				// click handler and navigate to the line right after cycling.
+				dot.addEventListener("click", (evt) => {
+					evt.preventDefault();
+					evt.stopPropagation();
+				});
+			}
 		} else {
 			const checkbox = li.createEl("input", {
 				cls: "task-list-item-checkbox loud-outline-task-checkbox",

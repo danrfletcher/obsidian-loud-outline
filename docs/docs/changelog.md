@@ -11,6 +11,9 @@
     installed, is detected via its public API - the tree shows the exact same status dot (color,
     label, Glow) as the note, and correctly treats "completed" vs. any other custom status rather
     than assuming every non-default checkbox marker means "done".
+- **Added:** for tasks governed by Checklist Status Sets, the tree's status dot is now interactive -
+  left-click cycles to the next status, right-click opens its real status picker, the same as the
+  note's own dots. A task's status can be changed without opening the note.
 - **Fixed:** a task governed by a custom (non-`x`/`X`) checkbox marker was previously always shown
   fully checked and struck-through in the tree, regardless of what that marker actually meant -
   only a genuine `- [x]`/`- [X]` (or, with Checklist Status Sets installed, a status actually marked

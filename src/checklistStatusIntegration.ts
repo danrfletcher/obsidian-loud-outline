@@ -15,11 +15,15 @@ export interface ChecklistTaskStatusDecoration {
 	hidden: boolean;
 }
 
-interface ChecklistStatusIconsPublicApi {
+export interface ChecklistStatusIconsPublicApi {
 	readonly apiVersion: number;
 	getStatusDecoration(path: string, lineNumber: number, marker: string): ChecklistTaskStatusDecoration | undefined;
 	isGlowEnabled(): boolean;
 	onChange(callback: () => void): () => void;
+	/** Cycles the task at `path`:`lineNumber` to the next status in its governing set's order. No-op if no assignment covers it. */
+	cycleTaskStatus(path: string, lineNumber: number): Promise<void>;
+	/** Opens Status Sets' own status-change popup for the task at `path`:`lineNumber`, anchored to `anchor`. No-op if no assignment covers it. */
+	openTaskStatusPopup(anchor: HTMLElement, path: string, lineNumber: number): Promise<void>;
 }
 
 const PLUGIN_ID = "checklist-status-icons";
@@ -54,4 +58,18 @@ export class ChecklistStatusIntegration {
 		if (!api || api.apiVersion < MIN_API_VERSION) return undefined;
 		return api;
 	}
+}
+
+/**
+ * cycleTaskStatus/openTaskStatusPopup shipped in a follow-up to the initial
+ * getStatusDecoration addition without a corresponding apiVersion bump, so
+ * apiVersion alone can't distinguish "has decoration only" from "has
+ * decoration + interaction" - checked by actual presence instead. A user on
+ * an older cached copy of that plugin still gets read-only status dots
+ * (getApi() above still succeeds), just not click/right-click.
+ */
+export function supportsTaskInteraction(
+	api: ChecklistStatusIconsPublicApi
+): api is ChecklistStatusIconsPublicApi & Required<Pick<ChecklistStatusIconsPublicApi, "cycleTaskStatus" | "openTaskStatusPopup">> {
+	return typeof api.cycleTaskStatus === "function" && typeof api.openTaskStatusPopup === "function";
 }

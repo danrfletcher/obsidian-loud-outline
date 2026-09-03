@@ -36,6 +36,12 @@ This also means:
   resolved status decides that, not the raw marker character.
 - A task hidden by that plugin's own "hide completed" setting is removed from the tree entirely,
   not just shown struck-through — matching it disappearing from the note's own render.
+- **The dot is interactive.** Left-click cycles the task to its next status; right-click opens
+  Checklist Status Sets' own status picker — the exact same actions its dots perform in the note
+  itself, reused via its public API rather than reimplemented. A task's status can be changed
+  entirely from the tree, without opening the note. This only applies to tasks actually governed by
+  an assignment; a plain fallback checkbox (no assignment, or the plugin not installed) stays as it
+  always has — clicking it does nothing beyond the row's normal navigate-to-line behavior.
 
 If Checklist Status Sets isn't installed, none of this applies and tasks render exactly as they
 always have.
