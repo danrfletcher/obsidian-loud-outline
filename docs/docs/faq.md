@@ -22,6 +22,23 @@ needs to notice the row grew taller. It corrects itself on the next scroll or in
 persists, please open an issue with the note's rough structure (headings/lists count and nesting
 depth) so it can be reproduced.
 
+## Why is a file/folder's title underlined?
+
+Loud Outline underlines the title of any row it added a collapse arrow to — it's the same signal
+folder-note plugins commonly use, and for the same reason: a chevron on a *file* row (or on a
+folder that's also standing in for a hidden folder note, see below) could otherwise look like an
+ordinary subfolder. The underline means "this row also opens straight to a note."
+
+## I use a folder-note plugin — where does the folder note's outline show up?
+
+If your folder-note plugin (e.g. [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes))
+is showing the note normally as its own row, its outline appears under that row, same as any other
+file. If it's configured to *hide* the folder note and let the folder itself stand in for it, Loud
+Outline detects that and nests the note's headings, tasks and lists directly under the **folder**
+instead — the folder is, after all, acting as both a file and a folder in that setup. The folder
+gets the same underline treatment described above, and its own native collapse arrow reveals the
+outline alongside whatever the folder actually contains.
+
 ## Does this write anything to my notes?
 
 No. Loud Outline only reads — Obsidian's metadata cache for heading/list positions, and (when tasks
