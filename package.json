@@ -1,6 +1,6 @@
 {
 	"name": "loud-outline",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "Like Quiet Outline, but louder! Shows each note's headings, tasks and lists as expandable nodes right in the file explorer — no separate outline pane needed.",
 	"main": "main.js",
 	"scripts": {

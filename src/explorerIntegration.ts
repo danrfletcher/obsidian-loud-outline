@@ -1,4 +1,4 @@
-import { App, TFile, WorkspaceLeaf } from "obsidian";
+import { App, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "obsidian";
 import { buildOutlineTree, OutlineNode } from "./outlineTree";
 import type LoudOutlinePlugin from "./main";
 
@@ -6,10 +6,11 @@ import type LoudOutlinePlugin from "./main";
  * Minimal shape of Obsidian's internal file-explorer "FileItem"/"FolderItem"
  * objects that we rely on. These are undocumented internals (confirmed live
  * against Obsidian 1.13.7), not part of the public API, hence the manual
- * typing here instead of an import from "obsidian".
+ * typing here instead of an import from "obsidian". FolderItem's `.file` is
+ * a TFolder, FileItem's is a TFile - both share this same shape.
  */
 interface ExplorerItem {
-	file: TFile;
+	file: TAbstractFile;
 	el: HTMLElement;
 	selfEl: HTMLElement;
 	innerEl: HTMLElement;
@@ -31,6 +32,8 @@ interface CachedOutline {
 	nodes: OutlineNode[];
 }
 
+type RowVisibility = "visible" | "singled-out-hidden" | "unmounted";
+
 /**
  * Owns injecting the heading/list outline into the native file explorer,
  * keeping it in sync with vault/metadata changes, and handling click
@@ -42,7 +45,7 @@ export class ExplorerOutlineManager {
 	private observer: MutationObserver | null = null;
 	private readonly outlineCache = new Map<string, CachedOutline>();
 	private readonly pendingReads = new Set<string>();
-	/** Keys of currently-expanded nodes (file roots and inner nodes alike). Empty = everything collapsed. */
+	/** Keys of currently-expanded nodes (file/folder hosts and inner nodes alike). Empty = everything collapsed. */
 	private readonly expandedKeys = new Set<string>();
 	private idCounter = 0;
 	private syncScheduled = false;
@@ -87,9 +90,22 @@ export class ExplorerOutlineManager {
 		);
 	}
 
+	/**
+	 * Disconnects from the explorer and strips every DOM node/class this
+	 * plugin ever injected, so disabling the plugin leaves the file explorer
+	 * exactly as it would look had the plugin never run - no leftover icons,
+	 * outline rows, or marker classes.
+	 */
 	stop(): void {
 		this.observer?.disconnect();
 		this.observer = null;
+
+		const view = (this.view ?? (this.findFileExplorerLeaf()?.view as unknown as ExplorerView)) || null;
+		if (view?.fileItems) {
+			for (const path of Object.keys(view.fileItems)) {
+				this.clearHostInjection(view.fileItems[path]);
+			}
+		}
 		this.view = null;
 	}
 
@@ -137,14 +153,92 @@ export class ExplorerOutlineManager {
 		}, 60);
 	}
 
+	/**
+	 * Whether a row is genuinely visible, deliberately hidden on its own
+	 * (its containing folder is open, but *this* row specifically is
+	 * display:none - e.g. a folder-note plugin hiding an excluded note),
+	 * or simply not mounted/visible because an ancestor folder is collapsed.
+	 * The distinction matters: only the "singled-out" case should redirect
+	 * its outline to the parent folder - a plain collapsed folder must not.
+	 *
+	 * Hiding a specific row is applied to its *selfEl* (confirmed live
+	 * against the "Folder notes" plugin, which hides an excluded note via
+	 * `.hide-folder-note .is-folder-note { display: none }` where
+	 * `is-folder-note` sits on selfEl, not the row's own root element) -
+	 * checking the root alone would miss it, since the root stays
+	 * display:block even though it renders at zero height.
+	 */
+	private rowVisibility(item: ExplorerItem | undefined | null): RowVisibility {
+		const root = item?.el;
+		const self = item?.selfEl;
+		if (!root || !root.isConnected || !self || !self.isConnected) return "unmounted";
+
+		if (getComputedStyle(self).display === "none") {
+			const container = root.parentElement;
+			const containerHidden = !container || getComputedStyle(container).display === "none";
+			return containerHidden ? "unmounted" : "singled-out-hidden";
+		}
+		return "visible";
+	}
+
 	private syncAll(): void {
 		const view = this.view;
 		if (!view || !view.fileItems) return;
+
+		const hosts = new Map<string, { item: ExplorerItem; files: TFile[] }>();
+		const addToHost = (item: ExplorerItem, file: TFile) => {
+			const key = item.file.path;
+			let entry = hosts.get(key);
+			if (!entry) {
+				entry = { item, files: [] };
+				hosts.set(key, entry);
+			}
+			entry.files.push(file);
+		};
+
 		for (const path of Object.keys(view.fileItems)) {
 			const item = view.fileItems[path];
 			const file = item?.file;
 			if (!file || !(file instanceof TFile) || file.extension !== "md") continue;
-			this.syncFileItem(item, file);
+
+			const state = this.rowVisibility(item);
+			if (state === "visible") {
+				addToHost(item, file);
+				continue;
+			}
+
+			if (state === "singled-out-hidden") {
+				// This file's own row is deliberately hidden (e.g. a folder-note
+				// plugin excluding it from the listing) while its parent folder
+				// is open. Since the parent folder is effectively standing in
+				// for this file, its outline belongs under the folder instead.
+				const parent = file.parent;
+				if (parent && !parent.isRoot()) {
+					const parentItem = view.fileItems[parent.path];
+					if (parentItem && this.rowVisibility(parentItem) === "visible") {
+						addToHost(parentItem, file);
+					}
+				}
+				// Nothing should remain injected on the hidden row itself.
+				this.clearHostInjection(item);
+			}
+			// 'unmounted' (an ancestor is collapsed): leave alone, a future
+			// sync picks it up once it (or its host) actually mounts.
+		}
+
+		const handled = new Set<string>();
+		for (const { item, files } of hosts.values()) {
+			handled.add(item.file.path);
+			this.syncHost(item, files);
+		}
+
+		// A folder that used to host a redirected folder-note outline but no
+		// longer does (note deleted, un-excluded, etc.) needs it cleared.
+		for (const path of Object.keys(view.fileItems)) {
+			const item = view.fileItems[path];
+			if (item?.file instanceof TFolder && !handled.has(item.file.path)) {
+				this.clearHostInjection(item);
+			}
 		}
 	}
 
@@ -184,48 +278,93 @@ export class ExplorerOutlineManager {
 		return { id: -1, nodes: buildOutlineTree(metadata, [], false) };
 	}
 
-	private syncFileItem(item: ExplorerItem, file: TFile): void {
+	/**
+	 * Removes every trace of our injection from a single explorer item
+	 * (icon, children container, marker classes) - used both when a host no
+	 * longer has any outline content, and wholesale on unload.
+	 */
+	private clearHostInjection(item: ExplorerItem | undefined): void {
+		const root = item?.el;
+		if (!root) return;
+		root.querySelector(":scope > .loud-outline-root-children")?.remove();
+		item?.selfEl?.querySelector(":scope > .loud-outline-collapse-icon")?.remove();
+		item?.selfEl?.classList.remove("loud-outline-file-title-host");
+		root.classList.remove("loud-outline-has-note-content", "loud-outline-collapsed");
+	}
+
+	/**
+	 * Renders (or updates) the outline for one "host" row - normally a
+	 * file's own row, but a folder's row when it's standing in for a hidden
+	 * folder note. Folders already have their own native collapse arrow, so
+	 * for a folder host we don't add a second one: the injected content is
+	 * simply placed among the folder's own children and shown/hidden by CSS
+	 * keyed off Obsidian's own `.is-collapsed` class on the folder row.
+	 */
+	private syncHost(item: ExplorerItem, files: TFile[]): void {
 		const root = item.el;
 		if (!root || !root.isConnected) return;
+		const isFolder = item.file instanceof TFolder;
 
-		const outline = this.getOutline(file);
+		const entries = files
+			.slice()
+			.sort((a, b) => a.path.localeCompare(b.path))
+			.map((file) => ({ file, outline: this.getOutline(file) }));
+		const totalNodes = entries.reduce((n, e) => n + e.outline.nodes.length, 0);
+
 		let childrenEl = root.querySelector(":scope > .loud-outline-root-children") as HTMLElement | null;
-		let icon = item.selfEl?.querySelector(":scope > .loud-outline-collapse-icon") as HTMLElement | null;
+		let icon = !isFolder
+			? (item.selfEl?.querySelector(":scope > .loud-outline-collapse-icon") as HTMLElement | null)
+			: null;
 
-		if (!outline.nodes.length) {
-			childrenEl?.remove();
-			icon?.remove();
-			root.classList.remove("loud-outline-has-children", "loud-outline-collapsed");
+		if (!totalNodes) {
+			this.clearHostInjection(item);
 			return;
 		}
 
-		const fileKey = `f:${file.path}`;
+		root.classList.add("loud-outline-has-note-content");
 
-		if (!icon) {
-			icon = this.createCollapseIcon(!this.expandedKeys.has(fileKey));
-			icon.addClass("loud-outline-file-icon");
-			item.selfEl.insertBefore(icon, item.selfEl.firstChild);
-			icon.addEventListener("click", (evt) => {
-				evt.preventDefault();
-				evt.stopPropagation();
-				this.toggleExpanded(fileKey, root, icon!);
-			});
+		if (!isFolder) {
+			const hostKey = `h:${item.file.path}`;
+			if (!icon) {
+				icon = this.createCollapseIcon(!this.expandedKeys.has(hostKey));
+				icon.addClass("loud-outline-file-icon");
+				item.selfEl.addClass("loud-outline-file-title-host");
+				// Absolutely positioned (see styles.css), so DOM order here is
+				// only for logical/reading order, not layout.
+				item.selfEl.appendChild(icon);
+				icon.addEventListener("click", (evt) => {
+					evt.preventDefault();
+					evt.stopPropagation();
+					this.toggleExpanded(hostKey, root, icon!);
+				});
+			}
+			const expanded = this.expandedKeys.has(hostKey);
+			root.classList.toggle("loud-outline-collapsed", !expanded);
+			icon.classList.toggle("is-collapsed", !expanded);
 		}
 
-		root.classList.add("loud-outline-has-children");
-		const expanded = this.expandedKeys.has(fileKey);
-		root.classList.toggle("loud-outline-collapsed", !expanded);
-		icon.classList.toggle("is-collapsed", !expanded);
-
-		if (!childrenEl || childrenEl.dataset.loSig !== String(outline.id)) {
+		const sig = entries.map((e) => `${e.file.path}#${e.outline.id}`).join("|");
+		if (!childrenEl || childrenEl.dataset.loSig !== sig) {
 			childrenEl?.remove();
 			childrenEl = document.createElement("div");
 			childrenEl.className = "loud-outline-root-children loud-outline-children";
-			childrenEl.dataset.loSig = String(outline.id);
-			for (const node of outline.nodes) {
-				childrenEl.appendChild(this.renderNode(node, file, 1));
+			childrenEl.dataset.loSig = sig;
+			for (const { file, outline } of entries) {
+				for (const node of outline.nodes) {
+					childrenEl.appendChild(this.renderNode(node, file, 1));
+				}
 			}
-			root.appendChild(childrenEl);
+			if (isFolder) {
+				// Read as "this folder's own note content first, then whatever
+				// it actually contains" rather than appended after everything.
+				const nativeChildren = root.querySelector(
+					":scope > .tree-item-children:not(.loud-outline-children)"
+				);
+				if (nativeChildren) root.insertBefore(childrenEl, nativeChildren);
+				else root.appendChild(childrenEl);
+			} else {
+				root.appendChild(childrenEl);
+			}
 		}
 	}
 

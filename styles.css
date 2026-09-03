@@ -11,6 +11,13 @@
 	display: none;
 }
 
+/* A folder standing in for a hidden folder note has no icon of its own
+   (see .loud-outline-file-icon below) - its injected content instead
+   follows Obsidian's own native collapse state for that folder row. */
+.is-collapsed > .loud-outline-children {
+	display: none;
+}
+
 .loud-outline-item-self {
 	display: flex;
 	align-items: center;
@@ -21,7 +28,7 @@
 	border-radius: var(--radius-s, 4px);
 	cursor: pointer;
 	color: var(--nav-item-color, var(--text-muted));
-	font-size: var(--font-ui-smaller, 0.8rem);
+	font-size: var(--font-ui-small, 13px);
 	line-height: 1.3;
 	white-space: nowrap;
 	user-select: none;
@@ -56,8 +63,29 @@
 	visibility: hidden;
 }
 
+/* The icon added to a native file/folder row must not shift that row's own
+   text. Obsidian's own folder collapse-icon achieves this by sitting inside
+   the row's already-reserved padding-inline-start gutter without adding to
+   flex layout width - absolute positioning replicates that exactly, so a
+   file with an outline lines up with a sibling file that doesn't have one. */
+.loud-outline-file-title-host {
+	position: relative;
+}
+
 .loud-outline-file-icon {
-	margin-inline-start: 2px;
+	position: absolute;
+	inset-inline-start: 2px;
+	top: 50%;
+	transform: translateY(-50%);
+	margin: 0;
+}
+
+/* A file or folder whose row got a collapse arrow from us could otherwise be
+   mistaken for a real folder - underline its title the same way folder-note
+   plugins commonly do, to signal "this also opens a note directly". */
+.loud-outline-has-note-content > .tree-item-self .nav-file-title-content,
+.loud-outline-has-note-content > .tree-item-self .nav-folder-title-content {
+	text-decoration: underline;
 }
 
 .loud-outline-item-inner {
