@@ -43,6 +43,14 @@ This also means:
   an assignment; a plain fallback checkbox (no assignment, or the plugin not installed) stays as it
   always has — clicking it does nothing beyond the row's normal navigate-to-line behavior.
 
+!!! warning "Known limitation: Reading view"
+    Clicking a governed task's dot only reliably works while its note is open in **Live Preview**.
+    With the note open in **Reading view** instead, left-click silently does nothing, and
+    right-click's popup can pre-highlight the wrong current status — a bug in Checklist Status
+    Sets' own line resolution for that view mode (not something this plugin can work around), also
+    affecting its own dots in the note the same way. Switch the note to Live Preview first if a
+    click from the tree doesn't seem to do anything.
+
 If Checklist Status Sets isn't installed, none of this applies and tasks render exactly as they
 always have.
 
