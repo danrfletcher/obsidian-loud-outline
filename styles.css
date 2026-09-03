@@ -107,6 +107,7 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	min-width: 0;
 }
 
 .loud-outline-item[data-lo-type="heading"] > .loud-outline-item-self .loud-outline-item-label {
@@ -114,10 +115,46 @@
 	color: var(--nav-item-color, var(--text-normal));
 }
 
+/* Real <li>/<input> pair (not the wrapper divs above) so a CSS-only
+   "alternate checkbox" snippet or theme keyed off the same data-task
+   attribute/element shape Obsidian's own Reading View uses can style this
+   row too - see explorerIntegration.ts's renderTaskCheckbox and README,
+   Compatibility. list-style is suppressed since this <li> isn't inside a
+   <ul> - it's only borrowed for its tag name/attribute, not real list
+   semantics. */
+.loud-outline-task-list-item {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	min-width: 0;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
 .loud-outline-task-checkbox {
 	margin: 0;
 	pointer-events: none;
 	flex-shrink: 0;
+}
+
+/* Checklist Status Sets integration - deliberately identical in shape to
+   that plugin's own .csi-dot (kept in sync by hand, see that repo's
+   styles.css) so a task decorated there looks the same here. */
+.loud-outline-status-dot {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	flex-shrink: 0;
+	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+.loud-outline-glow > .loud-outline-status-dot {
+	box-shadow:
+		0 0 0 1px rgba(0, 0, 0, 0.15),
+		0 0 3px 1px currentColor,
+		0 0 7px 2px currentColor;
 }
 
 .loud-outline-item[data-lo-type="task"][data-lo-checked="true"] .loud-outline-item-label {

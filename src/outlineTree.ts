@@ -11,6 +11,17 @@ export interface OutlineNode {
 	level?: number;
 	/** Checked state. Only set for type "task". */
 	checked?: boolean;
+	/**
+	 * Raw checkbox marker character - the single character between `[` and
+	 * `]` (`" "` for unchecked, `"x"`/`"X"` for checked, or any other single
+	 * character a custom-checkbox theme/plugin assigns its own meaning to).
+	 * Only set for type "task". Kept alongside `checked` (which collapses
+	 * this down to a boolean) so the file-explorer renderer can match
+	 * whatever custom status a theme or plugin - e.g. a checklist-status
+	 * plugin - has rendered for this exact task in the note itself, instead
+	 * of always falling back to a plain checked/unchecked checkbox.
+	 */
+	marker?: string;
 	children: OutlineNode[];
 }
 
@@ -74,11 +85,18 @@ export function buildOutlineTree(
 		const raw = lines[line] ?? "";
 		const text = extractListItemText(raw);
 		const isTask = li.task !== undefined;
+		// Only "x"/"X" is a genuinely *checked* task by Obsidian's own
+		// markdown convention - any other non-space marker is a custom
+		// status (e.g. a checklist-status plugin's "in progress"), not
+		// necessarily "done". Conflating the two here previously made every
+		// custom-status task render fully checked/struck-through regardless
+		// of what it actually meant - see README, Compatibility.
 		const node: OutlineNode = {
 			type: isTask ? "task" : "list",
 			text,
 			line,
-			checked: isTask ? li.task !== " " : undefined,
+			checked: isTask ? li.task === "x" || li.task === "X" : undefined,
+			marker: isTask ? li.task : undefined,
 			children: [],
 		};
 		nodeByLine.set(line, node);
