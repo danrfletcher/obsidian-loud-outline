@@ -172,13 +172,31 @@ export class ExplorerOutlineManager {
 	 * `is-folder-note` sits on selfEl, not the row's own root element) -
 	 * checking the root alone would miss it, since the root stays
 	 * display:block even though it renders at zero height.
+	 *
+	 * `parentItem`, when supplied, is the immediate containing folder's own
+	 * explorer item. Its `is-collapsed` class is the authoritative signal for
+	 * "an ancestor folder is collapsed" - falling back to the *container's*
+	 * own computed display (as done when no parentItem is available, e.g. a
+	 * root-level file) is not reliable on its own: "Folder notes" also hides
+	 * a folder's native children wrapper outright when that folder's only
+	 * child is its own (hidden) folder note, i.e. `.only-has-folder-note`,
+	 * even while the folder itself is fully expanded. Without checking the
+	 * parent's actual collapse state, that case is indistinguishable from a
+	 * genuinely collapsed ancestor and was wrongly treated as "unmounted",
+	 * silently dropping the redirect and hiding the note's outline entirely.
 	 */
-	private rowVisibility(item: ExplorerItem | undefined | null): RowVisibility {
+	private rowVisibility(
+		item: ExplorerItem | undefined | null,
+		parentItem?: ExplorerItem | undefined | null
+	): RowVisibility {
 		const root = item?.el;
 		const self = item?.selfEl;
 		if (!root || !root.isConnected || !self || !self.isConnected) return "unmounted";
 
 		if (getComputedStyle(self).display === "none") {
+			if (parentItem) {
+				return parentItem.el?.classList.contains("is-collapsed") ? "unmounted" : "singled-out-hidden";
+			}
 			const container = root.parentElement;
 			const containerHidden = !container || getComputedStyle(container).display === "none";
 			return containerHidden ? "unmounted" : "singled-out-hidden";
@@ -206,7 +224,10 @@ export class ExplorerOutlineManager {
 			const file = item?.file;
 			if (!file || !(file instanceof TFile) || file.extension !== "md") continue;
 
-			const state = this.rowVisibility(item);
+			const parent = file.parent;
+			const parentItem = parent && !parent.isRoot() ? view.fileItems[parent.path] : undefined;
+
+			const state = this.rowVisibility(item, parentItem);
 			if (state === "visible") {
 				addToHost(item, file);
 				continue;
@@ -217,12 +238,8 @@ export class ExplorerOutlineManager {
 				// plugin excluding it from the listing) while its parent folder
 				// is open. Since the parent folder is effectively standing in
 				// for this file, its outline belongs under the folder instead.
-				const parent = file.parent;
-				if (parent && !parent.isRoot()) {
-					const parentItem = view.fileItems[parent.path];
-					if (parentItem && this.rowVisibility(parentItem) === "visible") {
-						addToHost(parentItem, file);
-					}
+				if (parentItem && this.rowVisibility(parentItem) === "visible") {
+					addToHost(parentItem, file);
 				}
 				// Nothing should remain injected on the hidden row itself.
 				this.clearHostInjection(item);

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.4
+
+- **Fixed:** a folder note's outline (headings, tasks and lists) failed to appear under its folder
+  when that note was the *only* file in the folder — e.g. a "To Do" folder containing nothing but
+  its own `To Do.md`. [Folder Notes](https://github.com/LostPaul/obsidian-folder-notes) hides the
+  now-empty-looking native children area for such a folder even while it's expanded, which this
+  plugin was mistaking for "an ancestor folder is collapsed" and silently skipping. The folder's
+  own expand/collapse state is now checked directly instead of inferred from that area's
+  visibility, so the outline shows up correctly whether the folder has other files alongside its
+  note or not.
+
 ## 1.0.3
 
 Code-quality pass in response to Obsidian's automated plugin review — no user-visible behavior
