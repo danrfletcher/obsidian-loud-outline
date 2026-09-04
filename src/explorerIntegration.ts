@@ -32,6 +32,31 @@ const COLLAPSE_ICON_NAME = "chevron-down";
  */
 const FILE_ICON_RESERVED_WIDTH = 18;
 
+/**
+ * Fallback per-nesting-level indent step, in px, used only when it can't be
+ * measured live (see measureIndentStep) - Obsidian's own common default.
+ * Themes can and do change this, which is exactly why it's a last resort.
+ */
+const DEFAULT_INDENT_STEP = 17;
+
+/**
+ * Width a task/heading/list row's own per-node collapse icon (or its
+ * same-sized spacer, for a leaf node) reserves *before* the row's actual
+ * content - the 14px icon itself (.loud-outline-collapse-icon) plus
+ * .loud-outline-item-self's own 2px flex gap. Unlike a native file/folder
+ * row's collapse triangle (absolutely positioned - consumes no layout
+ * space of its own, confirmed live: a root-level folder and a deeply-
+ * nested file report the same content start regardless of whether either
+ * has one), this icon is a real flex sibling *before* the checkbox/dot, so
+ * it must be subtracted back out when anchoring a row's padding-inline-
+ * start to a target *content* position - otherwise the checkbox/dot itself
+ * (not just the row's own box) ends up exactly this many px too far right,
+ * which is a fixed, first-party CSS value under our own control (unlike
+ * DEFAULT_INDENT_STEP's native, theme-dependent one), hence hardcoded here
+ * rather than measured.
+ */
+const TASK_ROW_ICON_RESERVED_WIDTH = 16;
+
 interface CachedOutline {
 	/** Monotonic id, used as a cheap "has this changed" signature for re-renders. */
 	id: number;
@@ -320,6 +345,54 @@ export class ExplorerOutlineManager {
 	}
 
 	/**
+	 * Measures Obsidian's actual per-nesting-level indent step, in px, from
+	 * two currently-mounted native rows one level apart - rather than
+	 * assuming a value, since it varies by theme (and by plugins like
+	 * status-icon plugins that override padding-inline-start on native
+	 * rows) and isn't reliably readable from a single stable CSS custom
+	 * property (Obsidian's own --indent-size is a unitless design-token
+	 * multiplier, not a resolvable px value, on its own).
+	 *
+	 * Prefers comparing `hostItem` to its own parent folder's row - works
+	 * for both file and folder hosts, and is almost always available (a
+	 * host's parent must itself already be expanded for the host to be
+	 * visible at all, so its row is essentially always still mounted).
+	 * Falls back to comparing against any native child of `hostItem` when
+	 * it's a folder with one currently mounted. Falls back to a constant
+	 * (DEFAULT_INDENT_STEP) when neither is available - e.g. a root-level
+	 * host whose folder has no other rendered children of its own.
+	 */
+	private measureIndentStep(hostItem: ExplorerItem): number {
+		const view = this.view;
+		if (!view) return DEFAULT_INDENT_STEP;
+
+		const contentStart = (el: HTMLElement): number =>
+			el.getBoundingClientRect().left + (parseFloat(getComputedStyle(el).paddingInlineStart) || 0);
+
+		const parent = hostItem.file.parent;
+		if (parent && !parent.isRoot()) {
+			const parentItem = view.fileItems[parent.path];
+			if (parentItem?.selfEl?.isConnected) {
+				const step = contentStart(hostItem.selfEl) - contentStart(parentItem.selfEl);
+				if (step > 0) return step;
+			}
+		}
+
+		if (hostItem.file instanceof TFolder) {
+			for (const path of Object.keys(view.fileItems)) {
+				if (path === hostItem.file.path) continue;
+				const candidate: ExplorerItem = view.fileItems[path];
+				if (candidate.file.parent === hostItem.file && candidate.selfEl?.isConnected) {
+					const step = contentStart(candidate.selfEl) - contentStart(hostItem.selfEl);
+					if (step > 0) return step;
+				}
+			}
+		}
+
+		return DEFAULT_INDENT_STEP;
+	}
+
+	/**
 	 * Removes every trace of our injection from a single explorer item
 	 * (icon, children container, marker classes) - used both when a host no
 	 * longer has any outline content, and wholesale on unload.
@@ -403,9 +476,30 @@ export class ExplorerOutlineManager {
 				cls: "loud-outline-root-children loud-outline-children",
 				attr: { "data-lo-sig": sig },
 			});
+			// Anchor injected rows to the host's own real indentation rather
+			// than counting depth from scratch (see renderNode's basePadding
+			// param) - otherwise a host nested several real folders deep ends
+			// up under-indented relative to true sibling file/folder rows at
+			// that same depth, since this injected subtree is its own
+			// separate DOM branch, not literally nested inside the host's own
+			// (already-indented) row.
+			const indentStep = this.measureIndentStep(item);
+			const hostStyle = getComputedStyle(item.selfEl);
+			const hostPadding = parseFloat(hostStyle.paddingInlineStart) || 0;
+			const hostMargin = parseFloat(hostStyle.marginInlineStart) || 0;
+			// Subtract the per-node icon/spacer's own reserved width (see
+			// TASK_ROW_ICON_RESERVED_WIDTH) so the row's actual *content*
+			// (checkbox/dot) lands at the target position, not the row's
+			// own box - every row.loud-outline-item-self reserves this same
+			// width before its content, at every depth, via a real flex
+			// sibling rather than absolute positioning.
+			const basePadding = Math.max(
+				0,
+				hostPadding + hostMargin + indentStep - TASK_ROW_ICON_RESERVED_WIDTH
+			);
 			for (const { file, outline } of entries) {
 				for (const node of outline.nodes) {
-					const el = this.renderNode(node, file, 1);
+					const el = this.renderNode(node, file, 1, basePadding, indentStep);
 					if (el) childrenEl.appendChild(el);
 				}
 			}
@@ -429,7 +523,13 @@ export class ExplorerOutlineManager {
 	 * mirroring "hide completed" removing the task from the note's own
 	 * render entirely, not just visually. Every other node always renders.
 	 */
-	private renderNode(node: OutlineNode, file: TFile, depth: number): HTMLElement | null {
+	private renderNode(
+		node: OutlineNode,
+		file: TFile,
+		depth: number,
+		basePadding: number,
+		indentStep: number
+	): HTMLElement | null {
 		let decoration: ChecklistTaskStatusDecoration | undefined;
 		if (node.type === "task" && node.marker !== undefined) {
 			decoration = this.checklistIntegration.getApi()?.getStatusDecoration(file.path, node.line, node.marker);
@@ -449,7 +549,12 @@ export class ExplorerOutlineManager {
 					: {}),
 			},
 		});
-		wrapper.style.setProperty("--lo-depth", String(depth));
+		// depth 1 (a host's own direct children) gets exactly basePadding -
+		// already one indentStep beyond the host's own real indentation (see
+		// syncHost). Each further level of nesting *within* this outline
+		// (a sub-heading, a nested task, ...) adds one more indentStep on
+		// top, the same unit, so relative nesting still reads consistently.
+		wrapper.style.setProperty("--lo-padding-start", `${basePadding + (depth - 1) * indentStep}px`);
 
 		const self = wrapper.createDiv({ cls: "loud-outline-item-self" });
 
@@ -487,7 +592,7 @@ export class ExplorerOutlineManager {
 		if (hasChildren) {
 			const childrenEl = wrapper.createDiv({ cls: "loud-outline-item-children loud-outline-children" });
 			for (const child of node.children) {
-				const childEl = this.renderNode(child, file, depth + 1);
+				const childEl = this.renderNode(child, file, depth + 1, basePadding, indentStep);
 				if (childEl) childrenEl.appendChild(childEl);
 			}
 			wrapper.classList.toggle("loud-outline-collapsed", !this.expandedKeys.has(nodeKey));
