@@ -39,6 +39,24 @@ const FILE_ICON_RESERVED_WIDTH = 18;
  */
 const DEFAULT_INDENT_STEP = 17;
 
+/**
+ * Width a task/heading/list row's own per-node collapse icon (or its
+ * same-sized spacer, for a leaf node) reserves *before* the row's actual
+ * content - the 14px icon itself (.loud-outline-collapse-icon) plus
+ * .loud-outline-item-self's own 2px flex gap. Unlike a native file/folder
+ * row's collapse triangle (absolutely positioned - consumes no layout
+ * space of its own, confirmed live: a root-level folder and a deeply-
+ * nested file report the same content start regardless of whether either
+ * has one), this icon is a real flex sibling *before* the checkbox/dot, so
+ * it must be subtracted back out when anchoring a row's padding-inline-
+ * start to a target *content* position - otherwise the checkbox/dot itself
+ * (not just the row's own box) ends up exactly this many px too far right,
+ * which is a fixed, first-party CSS value under our own control (unlike
+ * DEFAULT_INDENT_STEP's native, theme-dependent one), hence hardcoded here
+ * rather than measured.
+ */
+const TASK_ROW_ICON_RESERVED_WIDTH = 16;
+
 interface CachedOutline {
 	/** Monotonic id, used as a cheap "has this changed" signature for re-renders. */
 	id: number;
@@ -469,7 +487,16 @@ export class ExplorerOutlineManager {
 			const hostStyle = getComputedStyle(item.selfEl);
 			const hostPadding = parseFloat(hostStyle.paddingInlineStart) || 0;
 			const hostMargin = parseFloat(hostStyle.marginInlineStart) || 0;
-			const basePadding = hostPadding + hostMargin + indentStep;
+			// Subtract the per-node icon/spacer's own reserved width (see
+			// TASK_ROW_ICON_RESERVED_WIDTH) so the row's actual *content*
+			// (checkbox/dot) lands at the target position, not the row's
+			// own box - every row.loud-outline-item-self reserves this same
+			// width before its content, at every depth, via a real flex
+			// sibling rather than absolute positioning.
+			const basePadding = Math.max(
+				0,
+				hostPadding + hostMargin + indentStep - TASK_ROW_ICON_RESERVED_WIDTH
+			);
 			for (const { file, outline } of entries) {
 				for (const node of outline.nodes) {
 					const el = this.renderNode(node, file, 1, basePadding, indentStep);

@@ -102,10 +102,15 @@
 	display: flex;
 	align-items: center;
 	gap: 5px;
-	overflow: hidden;
-	text-overflow: ellipsis;
 	white-space: nowrap;
 	min-width: 0;
+	/* Deliberately NOT overflow:hidden here (confirmed live: it clipped a
+	   status dot's glow on whichever side sat flush against this box's own
+	   edge - the left, in practice, since nothing else reserves space
+	   there). Truncation is fully handled by .loud-outline-item-label's own
+	   overflow/text-overflow/min-width below - this element only needs to
+	   let its own children (icon-or-spacer, checkbox/dot) lay out and the
+	   label truncate within whatever space remains. */
 }
 
 .loud-outline-item-label {
