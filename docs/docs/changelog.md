@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.1.0
+
+- **Added:** the file tree's checkboxes now match custom checkbox styling from the note itself,
+  instead of always showing a plain checked/unchecked box - see
+  [Compatibility](reference/compatibility.md).
+  - CSS-only "alternate checkbox" snippets/themes that key off Obsidian's own `data-task` attribute
+    are picked up automatically, with no configuration.
+  - [Checklist Status Sets](https://danrfletcher.github.io/obsidian-checklist-status-icons/), if
+    installed, is detected via its public API - the tree shows the exact same status dot (color,
+    label, Glow) as the note, and correctly treats "completed" vs. any other custom status rather
+    than assuming every non-default checkbox marker means "done".
+- **Added:** for tasks governed by Checklist Status Sets, the tree's status dot is now interactive -
+  left-click cycles to the next status, right-click opens its real status picker, the same as the
+  note's own dots. A task's status can be changed without opening the note. Requires Checklist
+  Status Sets 0.2.1+ for this to work correctly with a note open in Reading view (an earlier version
+  silently no-ops left-click and can mis-highlight the current status on right-click there - fixed
+  upstream, not something this plugin works around).
+- **Fixed:** a task governed by a custom (non-`x`/`X`) checkbox marker was previously always shown
+  fully checked and struck-through in the tree, regardless of what that marker actually meant -
+  only a genuine `- [x]`/`- [X]` (or, with Checklist Status Sets installed, a status actually marked
+  completed) is struck-through now.
+
 ## 1.0.4
 
 - **Fixed:** a folder note's outline (headings, tasks and lists) failed to appear under its folder

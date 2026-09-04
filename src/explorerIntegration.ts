@@ -1,5 +1,6 @@
 import { App, setIcon, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "obsidian";
 import { buildOutlineTree, OutlineNode } from "./outlineTree";
+import { ChecklistStatusIntegration, ChecklistTaskStatusDecoration, supportsTaskInteraction } from "./checklistStatusIntegration";
 import type LoudOutlinePlugin from "./main";
 
 /**
@@ -54,11 +55,29 @@ export class ExplorerOutlineManager {
 	private readonly expandedKeys = new Set<string>();
 	private idCounter = 0;
 	private syncScheduled = false;
+	private readonly checklistIntegration: ChecklistStatusIntegration;
+	private subscribedToChecklistStatus = false;
 
-	constructor(private app: App, private plugin: LoudOutlinePlugin) {}
+	constructor(private app: App, private plugin: LoudOutlinePlugin) {
+		this.checklistIntegration = new ChecklistStatusIntegration(app);
+	}
 
 	start(): void {
 		this.attachToExplorer();
+
+		// Checklist Status Sets may load after this plugin, or the user may
+		// edit an assignment / toggle Glow while the tree is showing that
+		// task - re-render live either way, same pattern this integration
+		// itself uses for Status Sets (see that repo's main.ts).
+		this.plugin.registerInterval(
+			window.setInterval(() => {
+				const api = this.checklistIntegration.getApi();
+				if (api && !this.subscribedToChecklistStatus) {
+					this.subscribedToChecklistStatus = true;
+					api.onChange(() => this.refreshAll());
+				}
+			}, 1000)
+		);
 
 		this.plugin.registerEvent(
 			this.app.metadataCache.on("changed", (file) => {
@@ -386,7 +405,8 @@ export class ExplorerOutlineManager {
 			});
 			for (const { file, outline } of entries) {
 				for (const node of outline.nodes) {
-					childrenEl.appendChild(this.renderNode(node, file, 1));
+					const el = this.renderNode(node, file, 1);
+					if (el) childrenEl.appendChild(el);
 				}
 			}
 			if (isFolder) {
@@ -403,12 +423,30 @@ export class ExplorerOutlineManager {
 		}
 	}
 
-	private renderNode(node: OutlineNode, file: TFile, depth: number): HTMLElement {
+	/**
+	 * Returns null (renders nothing, for this node or its children) only when
+	 * a task is actively hidden by the Checklist Status Sets integration -
+	 * mirroring "hide completed" removing the task from the note's own
+	 * render entirely, not just visually. Every other node always renders.
+	 */
+	private renderNode(node: OutlineNode, file: TFile, depth: number): HTMLElement | null {
+		let decoration: ChecklistTaskStatusDecoration | undefined;
+		if (node.type === "task" && node.marker !== undefined) {
+			decoration = this.checklistIntegration.getApi()?.getStatusDecoration(file.path, node.line, node.marker);
+			if (decoration?.hidden) return null;
+		}
+
 		const wrapper = createDiv({
 			cls: "loud-outline-item",
 			attr: {
 				"data-lo-type": node.type,
-				...(node.checked !== undefined ? { "data-lo-checked": String(node.checked) } : {}),
+				// A checklist-status decoration's own isCompleted (when present)
+				// takes precedence over the raw x/X checked state - a custom
+				// status might mean "done" via a marker that isn't x/X at all
+				// (or vice versa, a status explicitly not marked completed).
+				...(node.checked !== undefined
+					? { "data-lo-checked": String(decoration?.isCompleted ?? node.checked) }
+					: {}),
 			},
 		});
 		wrapper.style.setProperty("--lo-depth", String(depth));
@@ -434,12 +472,11 @@ export class ExplorerOutlineManager {
 		const inner = self.createDiv({ cls: "loud-outline-item-inner" });
 
 		if (node.type === "task") {
-			const checkbox = inner.createEl("input", { cls: "loud-outline-task-checkbox", type: "checkbox" });
-			checkbox.checked = !!node.checked;
-			checkbox.disabled = true;
+			const label = this.renderTaskCheckbox(inner, node, file, decoration);
+			label.setText(node.text);
+		} else {
+			inner.createSpan({ cls: "loud-outline-item-label", text: node.text });
 		}
-
-		inner.createSpan({ cls: "loud-outline-item-label", text: node.text });
 
 		self.addEventListener("click", (evt) => {
 			evt.preventDefault();
@@ -450,12 +487,101 @@ export class ExplorerOutlineManager {
 		if (hasChildren) {
 			const childrenEl = wrapper.createDiv({ cls: "loud-outline-item-children loud-outline-children" });
 			for (const child of node.children) {
-				childrenEl.appendChild(this.renderNode(child, file, depth + 1));
+				const childEl = this.renderNode(child, file, depth + 1);
+				if (childEl) childrenEl.appendChild(childEl);
 			}
 			wrapper.classList.toggle("loud-outline-collapsed", !this.expandedKeys.has(nodeKey));
 		}
 
 		return wrapper;
+	}
+
+	/**
+	 * Renders a task's checkbox, matching whatever custom checkbox styling
+	 * the note itself would show for this exact task where possible, rather
+	 * than always a plain native checkbox - see README, Compatibility.
+	 *
+	 * - If Checklist Status Sets governs this task, its status dot is
+	 *   reproduced exactly (color, label, Glow) - shape kept in sync by hand
+	 *   with that plugin's own `.csi-dot` (see styles.css).
+	 * - Otherwise, a real `<li class="task-list-item" data-task="…">` /
+	 *   `<input data-task="…">` pair is used - the same DOM shape and
+	 *   attribute Obsidian's own Reading View renders - so a CSS-only
+	 *   "alternate checkbox" snippet or theme keyed off `data-task` (common
+	 *   convention across the community, not scoped to this plugin) styles
+	 *   this row too, for free.
+	 *
+	 * Returns the label element so the caller can fill in its text - kept
+	 * here rather than inside this method so every node type still creates
+	 * its label through one call site in renderNode.
+	 *
+	 * When Checklist Status Sets' API supports it (see
+	 * supportsTaskInteraction), the dot is also made interactive the same
+	 * way that plugin's own dots are in the note: left-click cycles to the
+	 * next status, right-click opens its real status picker - so a task's
+	 * status can be changed from the tree without opening the note.
+	 */
+	private renderTaskCheckbox(
+		inner: HTMLElement,
+		node: OutlineNode,
+		file: TFile,
+		decoration: ChecklistTaskStatusDecoration | undefined
+	): HTMLElement {
+		const marker = node.marker ?? (node.checked ? "x" : " ");
+		const isNativeChecked = marker === "x" || marker === "X";
+
+		const li = inner.createEl("li", { cls: "task-list-item loud-outline-task-list-item" });
+		li.setAttribute("data-task", marker);
+		li.classList.toggle("is-checked", isNativeChecked);
+
+		if (decoration) {
+			const dot = li.createSpan({ cls: "loud-outline-status-dot" });
+			dot.setCssStyles({ backgroundColor: decoration.color, color: decoration.color });
+			dot.setAttribute("aria-label", decoration.label);
+			const api = this.checklistIntegration.getApi();
+			li.classList.toggle("loud-outline-glow", api?.isGlowEnabled() ?? false);
+
+			if (api && supportsTaskInteraction(api)) {
+				dot.addClass("loud-outline-status-dot-interactive");
+				// mousedown, not click - mirrors Checklist Status Sets' own dots
+				// (some Electron/input-method combinations never synthesize a
+				// click event at all). stopPropagation so the row's own click
+				// handler (navigate to line) never also fires.
+				dot.addEventListener("mousedown", (evt) => {
+					evt.preventDefault();
+					evt.stopPropagation();
+					const liveApi = this.checklistIntegration.getApi();
+					if (!liveApi || !supportsTaskInteraction(liveApi)) return;
+					if (evt.button === 2) {
+						void liveApi.openTaskStatusPopup(dot, file.path, node.line);
+					} else if (evt.button === 0) {
+						void liveApi.cycleTaskStatus(file.path, node.line);
+					}
+				});
+				dot.addEventListener("contextmenu", (evt) => {
+					evt.preventDefault();
+					evt.stopPropagation();
+				});
+				// A mousedown/mouseup pair still synthesizes a click afterwards
+				// regardless of what mousedown's own listener above did -
+				// swallow it here too, or it would bubble up to the row's own
+				// click handler and navigate to the line right after cycling.
+				dot.addEventListener("click", (evt) => {
+					evt.preventDefault();
+					evt.stopPropagation();
+				});
+			}
+		} else {
+			const checkbox = li.createEl("input", {
+				cls: "task-list-item-checkbox loud-outline-task-checkbox",
+				type: "checkbox",
+				attr: { "data-task": marker },
+			});
+			checkbox.checked = isNativeChecked;
+			checkbox.disabled = true;
+		}
+
+		return li.createSpan({ cls: "loud-outline-item-label" });
 	}
 
 	private createCollapseIcon(collapsed: boolean): HTMLElement {

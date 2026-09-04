@@ -48,6 +48,7 @@ nav:
       - Headings in the Tree: 'reference/headings.md'
       - Tasks and Lists: 'reference/tasks-and-lists.md'
       - Navigating: 'reference/navigation.md'
+      - Compatibility: 'reference/compatibility.md'
   - Settings Reference: 'settings.md'
   - Examples: 'examples.md'
   - FAQ and Troubleshooting: 'faq.md'

@@ -42,10 +42,12 @@ Both `Kick off meeting` (a task, nested under the file's root heading `Project`)
 ## Tasks vs. plain list items
 
 An item is treated as a task if it uses the `- [ ]` / `- [x]` checkbox syntax; anything else is a
-plain list item. Tasks show a checkbox reflecting their checked state (any character other than a
-blank space between the brackets counts as checked, matching Obsidian's own task parsing) — checked
-items are shown struck-through. Both render the same way otherwise, and both nest and navigate
-identically.
+plain list item. Tasks show a checkbox reflecting their state — `- [x]` / `- [X]` is checked and
+shown struck-through, `- [ ]` is unchecked, and any other single character (a custom checkbox status
+from a theme or plugin) is shown as neither by default, since it isn't necessarily "done" — see
+[Compatibility](compatibility.md) for how that character's actual meaning is picked up when
+something defines one. Both plain lists and tasks render the same way otherwise, and both nest and
+navigate identically.
 
 ## What text is shown
 
