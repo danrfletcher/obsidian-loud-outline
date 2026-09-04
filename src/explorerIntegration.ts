@@ -206,7 +206,7 @@ export class ExplorerOutlineManager {
 	 */
 	private rowVisibility(
 		item: ExplorerItem | undefined | null,
-		parentItem?: ExplorerItem | undefined | null
+		parentItem?: ExplorerItem | null
 	): RowVisibility {
 		const root = item?.el;
 		const self = item?.selfEl;
