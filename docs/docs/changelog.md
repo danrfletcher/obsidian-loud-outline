@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1
+
+Code-quality fix in response to Obsidian's automated plugin review - no user-visible behavior
+changes.
+
+- Dropped a redundant explicit `| undefined` from an already-optional parameter's type
+  (`rowVisibility`'s `parentItem?: ExplorerItem | undefined | null` -> `ExplorerItem | null`).
+
 ## 1.1.0
 
 - **Added:** the file tree's checkboxes now match custom checkbox styling from the note itself,
