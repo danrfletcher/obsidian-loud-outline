@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.2
+
+- **Fixed:** a task/heading/list row nested under a file or folder several levels deep (e.g. a task
+  in a folder-noted file two or more folders in) rendered under-indented in the tree - its checkbox
+  and text sat noticeably left of true sibling files/folders at that same depth, with the status
+  dot's glow visibly clipped on the left. The tree previously indented injected rows purely by
+  counting levels *within that file's own outline*, with no awareness of how deep the file/folder
+  itself actually sits in the vault - correct only by coincidence for root-level files. Indentation
+  is now anchored to the host row's own real, measured position (the same approach already used for
+  the host's own collapse arrow), so it lines up correctly at any depth.
+
 ## 1.1.1
 
 Code-quality fix in response to Obsidian's automated plugin review - no user-visible behavior

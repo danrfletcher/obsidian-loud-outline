@@ -22,7 +22,12 @@
 	display: flex;
 	align-items: center;
 	gap: 2px;
-	padding-inline-start: calc(20px * var(--lo-depth, 1) + 2px);
+	/* Set inline per-node from the host row's own measured indentation (see
+	   ExplorerOutlineManager.syncHost/renderNode) - a fixed multiplier here
+	   only ever lined up with true sibling file/folder rows by coincidence,
+	   at exactly one nesting depth. 22px is a sane fallback for the instant
+	   before that first runs, matching this rule's own former default. */
+	padding-inline-start: var(--lo-padding-start, 22px);
 	padding-inline-end: 4px;
 	padding-block: 3px;
 	border-radius: var(--radius-s, 4px);
