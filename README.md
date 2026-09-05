@@ -25,6 +25,9 @@ No separate outline pane. The file tree *is* the outline.
   - A list at the top of a file (above any heading, or in a file with no headings) nests directly
     under the file itself.
 - **Toggle-able.** Turn tasks/lists off in settings to fall back to headings-only.
+- **Checkboxes are clickable.** Clicking a task's checkbox in the tree toggles it exactly like
+  clicking that same checkbox in Reading View/Live Preview does, written straight back to the file
+  — no need to open the note first.
 - **Matches custom checkbox styling.** Checkboxes in the tree pick up the same styling as the note
   itself — CSS-only "alternate checkbox" snippets/themes automatically, plus exact color/label
   parity with [Checklist Status Sets](https://danrfletcher.github.io/obsidian-checklist-status-icons/)

@@ -40,11 +40,18 @@ This also means:
   Checklist Status Sets' own status picker — the exact same actions its dots perform in the note
   itself, reused via its public API rather than reimplemented. A task's status can be changed
   entirely from the tree, without opening the note. This only applies to tasks actually governed by
-  an assignment; a plain fallback checkbox (no assignment, or the plugin not installed) stays as it
-  always has — clicking it does nothing beyond the row's normal navigate-to-line behavior.
+  an assignment.
 
 If Checklist Status Sets isn't installed, none of this applies and tasks render exactly as they
 always have.
+
+## Plain checkboxes are interactive too
+
+A task with no governing status plugin still gets a real, clickable checkbox in the tree — clicking
+it (either mouse button) toggles the task's marker the same way clicking that same checkbox does in
+Reading View/Live Preview, written straight back to the file. This is independent of Checklist
+Status Sets entirely: it's the same behavior for a plain `- [ ]` task whether or not that plugin is
+installed.
 
 ## What this doesn't cover
 

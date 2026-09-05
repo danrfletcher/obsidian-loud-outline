@@ -144,7 +144,6 @@
 
 .loud-outline-task-checkbox {
 	margin: 0;
-	pointer-events: none;
 	flex-shrink: 0;
 }
 
