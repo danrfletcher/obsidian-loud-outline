@@ -1,6 +1,7 @@
 import { App, setIcon, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "obsidian";
 import { buildOutlineTree, OutlineNode } from "./outlineTree";
 import { ChecklistStatusIntegration, ChecklistTaskStatusDecoration, supportsTaskInteraction } from "./checklistStatusIntegration";
+import { toggleTaskChecked } from "./taskToggle";
 import type LoudOutlinePlugin from "./main";
 
 /**
@@ -683,7 +684,32 @@ export class ExplorerOutlineManager {
 				attr: { "data-task": marker },
 			});
 			checkbox.checked = isNativeChecked;
-			checkbox.disabled = true;
+			// No status plugin governs this task, so clicking it should do
+			// exactly what clicking the same checkbox does in Reading View/
+			// Live Preview - toggle its marker - rather than being a
+			// read-only mirror of the note's current state (see README,
+			// Compatibility). mousedown, not click, and not restricted to
+			// the left button: verified live that a real Reading View
+			// checkbox toggles on either button with no context menu, so
+			// there's no separate right-click behavior to preserve here
+			// (unlike the CSI dot above, which has an actual popup to open).
+			checkbox.addEventListener("mousedown", (evt) => {
+				evt.preventDefault();
+				evt.stopPropagation();
+				void toggleTaskChecked(this.app, file, node.line);
+			});
+			checkbox.addEventListener("contextmenu", (evt) => {
+				evt.preventDefault();
+				evt.stopPropagation();
+			});
+			// A mousedown/mouseup pair still synthesizes a click afterwards
+			// regardless of what mousedown's own listener above did -
+			// swallow it here too, or it would bubble up to the row's own
+			// click handler and navigate to the line right after toggling.
+			checkbox.addEventListener("click", (evt) => {
+				evt.preventDefault();
+				evt.stopPropagation();
+			});
 		}
 
 		return li.createSpan({ cls: "loud-outline-item-label" });

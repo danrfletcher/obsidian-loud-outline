@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.3
+
+- **Fixed:** a task with no governing status plugin - i.e. a plain `- [ ]` checkbox, whether or not
+  [Checklist Status Sets](https://danrfletcher.github.io/obsidian-checklist-status-icons/) is even
+  installed - couldn't be toggled from the tree at all. Its checkbox was hardcoded read-only
+  (`disabled`, no click handling, `pointer-events: none`), so clicking it did nothing but navigate
+  to the line, same as clicking anywhere else in the row - unlike the same checkbox in the actual
+  note, which toggles. It now toggles exactly like a real Reading View/Live Preview click does
+  (either mouse button, matching that real behavior), written straight back to the file - see
+  [Compatibility](reference/compatibility.md).
+
 ## 1.1.2
 
 - **Fixed:** a task/heading/list row nested under a file or folder several levels deep (e.g. a task
